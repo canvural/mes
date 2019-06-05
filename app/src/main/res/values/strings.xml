@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MES</string>
+    <string name="action_settings">Settings</string>
+    <string name="find_your_robot">Click on your robot to interact with it</string>
+</resources>
