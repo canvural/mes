@@ -7,7 +7,9 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.AlphaAnimation;
 import android.widget.ArrayAdapter;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -26,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter bluetoothAdapter = null;
     private Set<BluetoothDevice> pairedDevices;
     public static String EXTRA_ADDRESS = "device_address";
+    private AlphaAnimation buttonClick = new AlphaAnimation(1F, 0.5F);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +43,14 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
+            }
+        });
+
+        ImageButton refreshDeviceListButton = findViewById(R.id.refreshDeviceListButton);
+        refreshDeviceListButton.setOnClickListener(new ImageButton.OnClickListener() {
+            public void onClick(View v) {
+                v.startAnimation(MainActivity.this.buttonClick);
+                MainActivity.this.fetchBluetoothDevices();
             }
         });
 
