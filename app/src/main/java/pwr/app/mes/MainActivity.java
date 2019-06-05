@@ -28,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter bluetoothAdapter = null;
     private Set<BluetoothDevice> pairedDevices;
     public static String EXTRA_ADDRESS = "device_address";
-    private AlphaAnimation buttonClick = new AlphaAnimation(1F, 0.5F);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,7 +48,6 @@ public class MainActivity extends AppCompatActivity {
         ImageButton refreshDeviceListButton = findViewById(R.id.refreshDeviceListButton);
         refreshDeviceListButton.setOnClickListener(new ImageButton.OnClickListener() {
             public void onClick(View v) {
-                v.startAnimation(MainActivity.this.buttonClick);
                 MainActivity.this.fetchBluetoothDevices();
             }
         });
