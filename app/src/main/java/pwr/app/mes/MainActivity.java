@@ -8,9 +8,11 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -101,7 +103,20 @@ public class MainActivity extends AppCompatActivity {
         }
 
         final ArrayAdapter adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, list);
+
         deviceList.setAdapter(adapter);
-        //deviceList.setOnItemClickListener(myListClickListener);
+        deviceList.setOnItemClickListener(pairedDeviceItemOnClickListener);
     }
+
+    private AdapterView.OnItemClickListener pairedDeviceItemOnClickListener = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            String info = ((TextView) view).getText().toString();
+            String address = info.substring(info.length() - 17);
+
+            Intent i = new Intent(MainActivity.this, Control.class);
+            i.putExtra(EXTRA_ADDRESS, address);
+            startActivity(i);
+        }
+    };
 }
