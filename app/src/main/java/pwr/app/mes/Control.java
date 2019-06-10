@@ -3,29 +3,30 @@ package pwr.app.mes;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
+import android.view.View;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.viewpager.widget.ViewPager;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.tabs.TabItem;
 import com.google.android.material.tabs.TabLayout;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
-import androidx.core.content.ContextCompat;
-import androidx.viewpager.widget.ViewPager;
-
-import android.util.Log;
-import android.view.View;
-import android.widget.Toast;
-
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 public class Control extends AppCompatActivity implements Dance.OnFragmentInteractionListener, Manual.OnFragmentInteractionListener {
     String address = null;
@@ -37,6 +38,13 @@ public class Control extends AppCompatActivity implements Dance.OnFragmentIntera
     BluetoothSocket btSocket = null;
     private boolean isBtConnected = false;
     static final UUID myUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    OutputStream mmOutputStream;
+    InputStream mmInputStream;
+    Thread workerThread;
+    byte[] readBuffer;
+    int readBufferPosition;
+    int counter;
+    volatile boolean stopWorker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,23 +58,6 @@ public class Control extends AppCompatActivity implements Dance.OnFragmentIntera
         setSupportActionBar(toolbar);
 
         new ConnectBT().execute();
-
-        FloatingActionButton fab = findViewById(R.id.disFab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Unpair", Snackbar.LENGTH_LONG)
-                        .setAction("Action", new View.OnClickListener() {
-
-                                    @Override
-                                    public void onClick(View v) {
-
-                                        Control.this.disconnect();
-                                    }
-                                }
-                        ).show();
-            }
-        });
 
         tabLayout = findViewById(R.id.tabLayout);
         tabDance = findViewById(R.id.danceItem);
@@ -126,6 +117,59 @@ public class Control extends AppCompatActivity implements Dance.OnFragmentIntera
         Toast.makeText(getApplicationContext(), s, Toast.LENGTH_LONG).show();
     }
 
+    void beginListenForData() {
+        final Handler handler = new Handler();
+        final byte delimiter = 10; //This is the ASCII code for a newline character
+
+        stopWorker = false;
+        readBufferPosition = 0;
+        readBuffer = new byte[1024];
+        workerThread = new Thread(new Runnable() {
+            public void run() {
+                while (!Thread.currentThread().isInterrupted() && !stopWorker) {
+                    try {
+                        int bytesAvailable = mmInputStream.available();
+                        if (bytesAvailable > 0) {
+                            byte[] packetBytes = new byte[bytesAvailable];
+                            mmInputStream.read(packetBytes);
+                            for (int i = 0; i < bytesAvailable; i++) {
+                                byte b = packetBytes[i];
+                                if (b == delimiter) {
+                                    byte[] encodedBytes = new byte[readBufferPosition];
+                                    System.arraycopy(readBuffer, 0, encodedBytes, 0, encodedBytes.length);
+                                    final String data = new String(encodedBytes, "US-ASCII");
+                                    readBufferPosition = 0;
+
+                                    handler.post(new Runnable() {
+                                        public void run() {
+                                            new AlertDialog.Builder(Control.this)
+                                                    .setTitle("Mr Dancy Sent a Message")
+                                                    .setMessage(data)
+                                                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                                        public void onClick(DialogInterface dialog, int which) {
+
+                                                        }
+                                                    })
+                                                    .setNegativeButton(android.R.string.no, null)
+                                                    .setIcon(android.R.drawable.ic_dialog_alert)
+                                                    .show();
+                                        }
+                                    });
+                                } else {
+                                    readBuffer[readBufferPosition++] = b;
+                                }
+                            }
+                        }
+                    } catch (IOException ex) {
+                        stopWorker = true;
+                    }
+                }
+            }
+        });
+
+        workerThread.start();
+    }
+
     @Override
     public void onFragmentInteraction(String signal) {
         sendSignal(signal);
@@ -148,6 +192,8 @@ public class Control extends AppCompatActivity implements Dance.OnFragmentIntera
                     btSocket = dispositivo.createInsecureRfcommSocketToServiceRecord(myUUID);
                     BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
                     btSocket.connect();
+
+                    beginListenForData();
                 }
             } catch (IOException e) {
                 ConnectSuccess = false;
@@ -161,8 +207,21 @@ public class Control extends AppCompatActivity implements Dance.OnFragmentIntera
             super.onPostExecute(result);
 
             if (!ConnectSuccess) {
-                Toast.makeText(getApplicationContext(), "Could not connect to device", Toast.LENGTH_LONG).show();
-                finish();
+                new AlertDialog.Builder(Control.this)
+                        .setTitle("Mr Dancy Sent a Message")
+                        .setMessage("Could not connect to device")
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                finish();
+                            }
+                        })
+                        .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                finish();
+                            }
+                        })
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .show();
             } else {
                 msg("Connected!");
                 viewPager.setVisibility(View.VISIBLE);
